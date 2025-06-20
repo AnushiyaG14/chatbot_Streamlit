@@ -1,54 +1,38 @@
-
 import streamlit as st
-import requests, json
 
-# ---------- Config ----------
-OLLAMA_URL = "http://localhost:11434/api/chat"   # adjust if Ollama runs elsewhere
-MODEL       = "llama3"                           # pick any model you have pulled
-# -----------------------------
+st.set_page_config(page_title="Simple Chatbot", page_icon="🤖")
 
-st.set_page_config(page_title="Ollama + Streamlit Chatbot", page_icon="💬")
-st.title("💬 Ollama Chatbot (Streamlit)")
+st.title("🤖 Chatbot UI")
+st.write("Ask me anything!")
 
-# Initialize chat history in Streamlit session state
-if "history" not in st.session_state:
-    st.session_state["history"] = []   # list of {"role": "...", "content": "..."}
+# Initialize chat history
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-# --- sidebar controls (optional) ---
-with st.sidebar:
-    st.markdown("### Settings")
-    MODEL = st.text_input("Model name", value=MODEL)
+# Input from user
+user_input = st.text_input("You:", key="input")
 
-# --- main UI ---
-prompt = st.text_input("You:", key="user_input", placeholder="Ask me anything…")
-send_clicked = st.button("Send", key="send_btn")
+# Simple rule-based response
+def get_bot_response(message):
+    message = message.lower()
+    if "hello" in message:
+        return "Hi there! How can I help you?"
+    elif "bye" in message:
+        return "Goodbye! 👋"
+    elif "name" in message:
+        return "I'm a simple chatbot built with Streamlit."
+    else:
+        return "I'm not sure how to respond to that. Try asking something else."
 
-def stream_from_ollama(prompt, history):
-    """Generator that yields tokens from Ollama’s streaming endpoint"""
-    payload = {
-        "model": MODEL,
-        "messages": history + [{"role": "user", "content": prompt}],
-        "stream": True
-    }
-    with requests.post(OLLAMA_URL, json=payload, stream=True, timeout=0) as resp:
-        for line in resp.iter_lines():
-            if line and line.startswith(b"data: "):
-                data = json.loads(line[6:])
-                yield data.get("message", {}).get("content", "")
+# Add message to history and display
+if user_input:
+    st.session_state.chat_history.append(("user", user_input))
+    response = get_bot_response(user_input)
+    st.session_state.chat_history.append(("bot", response))
 
-if send_clicked and prompt:
-    # Store user message
-    st.session_state["history"].append({"role": "user", "content": prompt})
-
-    # Placeholder that will grow as we receive tokens
-    response_box = st.empty()
-    full_response = ""
-
-    # Stream tokens
-    for token in stream_from_ollama(prompt, st.session_state["history"]):
-        full_response += token
-        response_box.markdown(full_response + "▌")   # typing cursor
-
-    # Finalise
-    response_box.markdown(full_response)
-    st.session_state["history"].append({"role": "assistant", "content": full_response})
+# Show the chat
+for sender, message in st.session_state.chat_history:
+    if sender == "user":
+        st.markdown(f"**You:** {message}")
+    else:
+        st.markdown(f"**Bot:** {message}")
